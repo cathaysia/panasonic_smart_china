@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "git-commit-message": {
+      "source": "cathaysia/skills",
+      "sourceType": "github",
+      "computedHash": "e50797651eb0647f9b1db910eb697f6eae2b480f3ae2068c83908de90a3a860e"
+    }
+  }
+}

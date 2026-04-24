@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from collections.abc import Mapping
 
 import aiohttp
 import voluptuous as vol
@@ -13,10 +14,12 @@ from .const import (
     CONF_CONTROLLER_MODEL,
     CONF_DEVICE_CATEGORY,
     CONF_DEVICE_ID,
+    CONF_FAMILY_ID,
     CONF_DEVICE_MODEL,
     CONF_DEVICE_NAME,
     CONF_DEVICE_SUBTYPE,
     CONF_DEVICE_TYPE,
+    CONF_REAL_FAMILY_ID,
     CONF_SENSOR_ID,
     CONF_SSID,
     CONF_TOKEN,
@@ -42,6 +45,7 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._login_data = {}
         self._devices = {}
         self._temp_login_info = {}
+        self._device_lookup = {}
 
     async def async_step_user(self, user_input=None):
         errors = {}
@@ -80,8 +84,8 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_USR_ID: usr_id,
                     CONF_SSID: ssid,
                     "devices": devices,
-                    "familyId": self._temp_login_info.get("familyId"),
-                    "realFamilyId": self._temp_login_info.get("realFamilyId"),
+                    CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
+                    CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
                 }
                 return await self.async_step_device()
             except Exception as err:
@@ -104,7 +108,7 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         existing_ids = self._async_current_ids()
 
         available_devices = {}
-        device_lookup = {}
+        self._device_lookup = {}
         for device_id, info in self._devices.items():
             if f"panasonic_{device_id}" in existing_ids:
                 continue
@@ -115,51 +119,142 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             label = f"{info.get('deviceName', device_id)} ({device_id})"
             available_devices[device_id] = label
-            device_lookup[device_id] = info
+            self._device_lookup[device_id] = info
 
         if not available_devices:
             return self.async_abort(reason="all_devices_configured")
 
+        ac_device_ids = {
+            device_id
+            for device_id, info in self._device_lookup.items()
+            if infer_device_type(device_id, info) == DEVICE_TYPE_AIR_CONDITIONER
+        }
+
+        if user_input is None and len(available_devices) > 1 and not ac_device_ids:
+            device_ids = list(available_devices)
+            for extra_device_id in device_ids[1:]:
+                await self._async_create_additional_entry(extra_device_id)
+            primary_device_id = device_ids[0]
+            primary_info = self._device_lookup.get(primary_device_id, self._devices.get(primary_device_id, {}))
+            return self._create_device_entry(primary_device_id, primary_info)
+
         if user_input is not None:
             selected_dev_id = user_input[CONF_DEVICE_ID]
-            dev_info = device_lookup.get(selected_dev_id, self._devices.get(selected_dev_id, {}))
-            dev_name = dev_info.get("deviceName", "Panasonic Device")
+            dev_info = self._device_lookup.get(selected_dev_id, self._devices.get(selected_dev_id, {}))
             device_type = infer_device_type(selected_dev_id, dev_info)
-            device_model = infer_device_model(selected_dev_id, dev_info)
-            token = generate_device_token(selected_dev_id)
+            if device_type == DEVICE_TYPE_AIR_CONDITIONER:
+                self.context[CONF_DEVICE_ID] = selected_dev_id
+                return await self.async_step_air_conditioner_options()
 
-            if not token:
-                errors["base"] = "token_generation_failed"
-            else:
-                data = {
-                    CONF_USR_ID: self._login_data[CONF_USR_ID],
-                    CONF_SSID: self._login_data[CONF_SSID],
-                    CONF_DEVICE_ID: selected_dev_id,
-                    CONF_TOKEN: token,
-                    CONF_DEVICE_CATEGORY: get_device_category(selected_dev_id),
-                    CONF_DEVICE_TYPE: device_type,
-                    CONF_DEVICE_NAME: dev_name,
-                    CONF_DEVICE_MODEL: device_model,
-                    CONF_DEVICE_SUBTYPE: str(dev_info.get("devSubTypeId", "")),
-                }
-                if device_type == DEVICE_TYPE_AIR_CONDITIONER:
-                    data[CONF_CONTROLLER_MODEL] = user_input[CONF_CONTROLLER_MODEL]
-                    if user_input.get(CONF_SENSOR_ID):
-                        data[CONF_SENSOR_ID] = user_input[CONF_SENSOR_ID]
+            return self._create_device_entry(selected_dev_id, dev_info)
 
-                return self.async_create_entry(title=dev_name, data=data)
-
-        controller_options = {key: value["name"] for key, value in SUPPORTED_CONTROLLERS.items()}
         return self.async_show_form(
             step_id="device",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_DEVICE_ID): vol.In(available_devices),
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_air_conditioner_options(self, user_input=None):
+        errors = {}
+        selected_dev_id = self.context.get(CONF_DEVICE_ID)
+        if not selected_dev_id:
+            return await self.async_step_device()
+
+        dev_info = self._device_lookup.get(selected_dev_id, self._devices.get(selected_dev_id, {}))
+        if infer_device_type(selected_dev_id, dev_info) != DEVICE_TYPE_AIR_CONDITIONER:
+            return self._create_device_entry(selected_dev_id, dev_info)
+
+        if user_input is not None:
+            return self._create_device_entry(selected_dev_id, dev_info, user_input)
+
+        controller_options = {key: value["name"] for key, value in SUPPORTED_CONTROLLERS.items()}
+        return self.async_show_form(
+            step_id="air_conditioner_options",
+            data_schema=vol.Schema(
+                {
                     vol.Optional(CONF_CONTROLLER_MODEL, default="CZ-RD501DW2"): vol.In(controller_options),
                     vol.Optional(CONF_SENSOR_ID): EntitySelector(EntitySelectorConfig(domain="sensor")),
                 }
             ),
             errors=errors,
+        )
+
+    def _create_device_entry(self, selected_dev_id, dev_info, user_input=None):
+        dev_name = dev_info.get("deviceName", "Panasonic Device")
+        device_type = infer_device_type(selected_dev_id, dev_info)
+        device_model = infer_device_model(selected_dev_id, dev_info)
+        token = generate_device_token(selected_dev_id)
+
+        if not token:
+            return self.async_abort(reason="token_generation_failed")
+
+        data = {
+            CONF_USR_ID: self._login_data[CONF_USR_ID],
+            CONF_SSID: self._login_data[CONF_SSID],
+            CONF_DEVICE_ID: selected_dev_id,
+            CONF_TOKEN: token,
+            CONF_DEVICE_CATEGORY: get_device_category(selected_dev_id),
+            CONF_DEVICE_TYPE: device_type,
+            CONF_DEVICE_NAME: dev_name,
+            CONF_DEVICE_MODEL: device_model,
+            CONF_DEVICE_SUBTYPE: str(dev_info.get("devSubTypeId", "")),
+            CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
+            CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
+        }
+        if device_type == DEVICE_TYPE_AIR_CONDITIONER and user_input is not None:
+            data[CONF_CONTROLLER_MODEL] = user_input[CONF_CONTROLLER_MODEL]
+            if user_input.get(CONF_SENSOR_ID):
+                data[CONF_SENSOR_ID] = user_input[CONF_SENSOR_ID]
+
+        return self.async_create_entry(title=dev_name, data=data)
+
+    async def async_step_import_device(self, import_data: Mapping[str, object] | None = None):
+        if not import_data:
+            return self.async_abort(reason="cannot_connect")
+
+        selected_dev_id = str(import_data[CONF_DEVICE_ID])
+        if self._device_id_exists(selected_dev_id):
+            return self.async_abort(reason="already_configured")
+
+        dev_info = dict(import_data.get("device_info", {}))
+        self._login_data = {
+            CONF_USR_ID: import_data[CONF_USR_ID],
+            CONF_SSID: import_data[CONF_SSID],
+        }
+        self._temp_login_info = {
+            CONF_FAMILY_ID: import_data.get(CONF_FAMILY_ID),
+            CONF_REAL_FAMILY_ID: import_data.get(CONF_REAL_FAMILY_ID),
+        }
+        return self._create_device_entry(selected_dev_id, dev_info)
+
+    async def _async_create_additional_entry(self, device_id: str) -> None:
+        if self._device_id_exists(device_id):
+            return
+
+        dev_info = self._device_lookup.get(device_id, self._devices.get(device_id, {}))
+        if infer_device_type(device_id, dev_info) == DEVICE_TYPE_AIR_CONDITIONER:
+            return
+
+        await self.hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": "import_device"},
+            data={
+                CONF_USR_ID: self._login_data[CONF_USR_ID],
+                CONF_SSID: self._login_data[CONF_SSID],
+                CONF_DEVICE_ID: device_id,
+                CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
+                CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
+                "device_info": dev_info,
+            },
+        )
+
+    def _device_id_exists(self, device_id: str) -> bool:
+        return any(
+            entry.data.get(CONF_DEVICE_ID) == device_id for entry in self.hass.config_entries.async_entries(DOMAIN)
         )
 
     async def _get_devices_with_ssid(self, usr_id, ssid):
@@ -235,8 +330,8 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 real_usr_id = res["usrId"]
                 ssid = res["ssId"]
                 self._temp_login_info = {
-                    "realFamilyId": res["realFamilyId"],
-                    "familyId": res["familyId"],
+                    CONF_REAL_FAMILY_ID: res[CONF_REAL_FAMILY_ID],
+                    CONF_FAMILY_ID: res[CONF_FAMILY_ID],
                 }
 
             headers["Cookie"] = f"SSID={ssid}"

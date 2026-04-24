@@ -19,6 +19,8 @@ CONF_DEVICE_TYPE = "device_type"
 CONF_DEVICE_NAME = "device_name"
 CONF_DEVICE_MODEL = "device_model"
 CONF_DEVICE_SUBTYPE = "device_subtype"
+CONF_FAMILY_ID = "familyId"
+CONF_REAL_FAMILY_ID = "realFamilyId"
 
 DEVICE_TYPE_AIR_CONDITIONER = "air_conditioner"
 DEVICE_TYPE_LAUNDRY = "laundry"

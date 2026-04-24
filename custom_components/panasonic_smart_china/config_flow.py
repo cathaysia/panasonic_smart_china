@@ -27,8 +27,8 @@ from .const import (
     DEVICE_TYPE_AIR_CONDITIONER,
     DEVICE_TYPE_UNKNOWN,
     DOMAIN,
-    SUPPORTED_CONTROLLERS,
 )
+from .data.air_conditioner import SUPPORTED_CONTROLLERS
 from .utils import generate_device_token, get_device_category, infer_device_model, infer_device_type
 
 _LOGGER = logging.getLogger(__name__)

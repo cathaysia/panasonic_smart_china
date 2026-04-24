@@ -14,22 +14,13 @@ from .const import (
     DEVICE_TYPE_AIR_CONDITIONER,
     DEVICE_TYPE_LAUNDRY,
     DEVICE_TYPE_UNKNOWN,
-    DRYER_AIR_VOLUME_OPTIONS,
-    DRYER_DRY_MODE_OPTIONS,
-    DRYER_DRY_SPEND_OPTIONS,
-    DRYER_DRY_TEMP_OPTIONS,
-    DRYER_DRY_TYPE_OPTIONS,
-    DRYER_FRESHEN_OPTIONS,
-    LAUNDRY_DRUM_MODELS,
-    LAUNDRY_DRUM_PROGRAMS,
-    LAUNDRY_STATUS_LABELS,
-    LAUNDRY_TOP_LOAD_PROGRAMS,
-    RAW_LAUNDRY_FIELD_LABELS,
-    TOP_LOAD_RINSE_OPTIONS,
-    TOP_LOAD_WATER_LEVEL_OPTIONS,
-    WASHER_SPIN_SPEED_OPTIONS,
-    WASHER_TEMPERATURE_OPTIONS,
-    WASHER_WATER_LEVEL_OPTIONS,
+)
+from .data.laundry import (
+    get_laundry_option_label,
+    get_laundry_program_map,
+    get_laundry_status_label,
+    get_raw_laundry_field_label,
+    is_top_load_laundry_model,
 )
 
 
@@ -108,17 +99,6 @@ def infer_device_type(device_id: str, device_info: dict[str, Any]) -> str:
     return DEVICE_TYPE_UNKNOWN
 
 
-def is_top_load_laundry_model(model: str) -> bool:
-    if not model:
-        return False
-    return model.upper() not in LAUNDRY_DRUM_MODELS
-
-
-def get_laundry_program_map(model: str) -> dict[int, str]:
-    programs = LAUNDRY_TOP_LOAD_PROGRAMS if is_top_load_laundry_model(model) else LAUNDRY_DRUM_PROGRAMS
-    return {program_id: name for program_id, name in programs}
-
-
 def get_laundry_status_code(data: dict[str, Any]) -> int | None:
     error_code = data.get("_error_code")
     is_top_load = is_top_load_laundry_model(str(data.get(CONF_DEVICE_MODEL, "")))
@@ -157,48 +137,3 @@ def get_laundry_status_code(data: dict[str, Any]) -> int | None:
         status = 8
 
     return status
-
-
-def get_laundry_status_label(status_code: int | None) -> str | None:
-    if status_code is None:
-        return None
-    return LAUNDRY_STATUS_LABELS.get(status_code, str(status_code))
-
-
-def get_laundry_option_label(device_category: str, model: str, field: str, value: Any) -> str | None:
-    if value is None:
-        return None
-
-    mapping = None
-    if device_category == DEVICE_CATEGORY_DRYER:
-        mapping = {
-            "drySpend": DRYER_DRY_SPEND_OPTIONS,
-            "dryMode": DRYER_DRY_MODE_OPTIONS,
-            "dryTemp": DRYER_DRY_TEMP_OPTIONS,
-            "airVo": DRYER_AIR_VOLUME_OPTIONS,
-            "dryType": DRYER_DRY_TYPE_OPTIONS,
-            "freshenSetTime": DRYER_FRESHEN_OPTIONS,
-        }.get(field)
-    elif is_top_load_laundry_model(model):
-        mapping = {
-            "waterLevel": TOP_LOAD_WATER_LEVEL_OPTIONS,
-            "rinseTime": TOP_LOAD_RINSE_OPTIONS,
-        }.get(field)
-    else:
-        mapping = {
-            "spinSpeed": WASHER_SPIN_SPEED_OPTIONS,
-            "waterLevel": WASHER_WATER_LEVEL_OPTIONS,
-            "temperature": WASHER_TEMPERATURE_OPTIONS,
-        }.get(field)
-
-    if mapping is None:
-        return None
-
-    try:
-        return mapping.get(int(value), str(value))
-    except (TypeError, ValueError):
-        return mapping.get(value, str(value))
-
-
-def get_raw_laundry_field_label(field: str) -> str:
-    return RAW_LAUNDRY_FIELD_LABELS.get(field, field)

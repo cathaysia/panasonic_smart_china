@@ -6,6 +6,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DEVICE_TYPE_LAUNDRY, DOMAIN
+from .data.dryer import DRYER_SELECT_FIELDS
+from .data.washer import TOP_LOAD_SELECT_FIELDS, WASHER_SELECT_FIELDS
 from .entity import PanasonicCoordinatorEntity
 from .utils import get_laundry_option_label
 
@@ -24,24 +26,11 @@ async def async_setup_entry(
         entities.append(PanasonicLaundryProgramSelect(coordinator))
 
     if coordinator.is_dryer:
-        fields = [
-            ("drySpend", "干衣度", [1, 2, 3, 4, 5]),
-            ("dryMode", "干衣模式", [1, 2, 3, 4]),
-            ("dryTemp", "干衣温度", [1, 2, 3, 4, 5, 6]),
-            ("airVo", "风量", [1, 2, 3]),
-            ("dryType", "干衣类型", [1, 2, 3]),
-        ]
+        fields = DRYER_SELECT_FIELDS
     elif coordinator.is_top_load:
-        fields = [
-            ("waterLevel", "水位", [1, 3, 4, 5, 6, 7, 8, 9, 10, 12]),
-            ("rinseTime", "漂洗", [0, 1, 2, 3, 4, 5, 6]),
-        ]
+        fields = TOP_LOAD_SELECT_FIELDS
     else:
-        fields = [
-            ("temperature", "温度", [0, 1, 2, 3, 4, 5]),
-            ("spinSpeed", "转速", [0, 1, 2, 3, 4, 5]),
-            ("waterLevel", "水位", [1, 2, 4]),
-        ]
+        fields = WASHER_SELECT_FIELDS
 
     entities.extend(PanasonicLaundryOptionSelect(coordinator, field, name, values) for field, name, values in fields)
     async_add_entities(entities)

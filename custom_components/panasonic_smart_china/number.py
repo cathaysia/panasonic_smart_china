@@ -6,26 +6,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DEVICE_TYPE_LAUNDRY, DOMAIN
+from .data.dryer import DRYER_NUMBER_FIELDS
+from .data.washer import TOP_LOAD_NUMBER_FIELDS, WASHER_NUMBER_FIELDS
 from .entity import PanasonicCoordinatorEntity
-
-
-NUMBER_FIELDS = {
-    "washer": [
-        ("timeDelayTotal", "预约时长", 0, 24, 1, "h"),
-        ("washTime", "洗涤时间", 0, 120, 1, "min"),
-        ("spinTime", "脱水时间", 0, 30, 1, "min"),
-    ],
-    "dryer": [
-        ("timeDelayTotal", "预约时长", 0, 24, 1, "h"),
-        ("dryTime", "干衣时间", 0, 240, 1, "min"),
-        ("freshenSetTime", "清新保持", 0, 10, 1, "h"),
-    ],
-    "top_load": [
-        ("timeDelayTotal", "预约时长", 0, 24, 1, "h"),
-        ("washTime", "洗涤时间", 0, 120, 1, "min"),
-        ("spinTime", "脱水时间", 0, 30, 1, "min"),
-    ],
-}
 
 
 async def async_setup_entry(
@@ -37,10 +20,12 @@ async def async_setup_entry(
     if coordinator.device_type != DEVICE_TYPE_LAUNDRY:
         return
 
-    key = "dryer" if coordinator.is_dryer else ("top_load" if coordinator.is_top_load else "washer")
+    fields = DRYER_NUMBER_FIELDS if coordinator.is_dryer else (
+        TOP_LOAD_NUMBER_FIELDS if coordinator.is_top_load else WASHER_NUMBER_FIELDS
+    )
     async_add_entities(
         PanasonicLaundryNumberEntity(coordinator, field, name, min_value, max_value, step, unit)
-        for field, name, min_value, max_value, step, unit in NUMBER_FIELDS[key]
+        for field, name, min_value, max_value, step, unit in fields
     )
 
 

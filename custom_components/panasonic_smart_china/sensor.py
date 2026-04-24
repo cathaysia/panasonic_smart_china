@@ -7,7 +7,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DEVICE_TYPE_LAUNDRY, DOMAIN, RAW_LAUNDRY_FIELD_LABELS
+from .const import DEVICE_TYPE_LAUNDRY, DOMAIN
+from .data.laundry import RAW_LAUNDRY_FIELD_LABELS
 from .entity import PanasonicCoordinatorEntity
 from .utils import get_laundry_option_label, get_laundry_program_map, get_laundry_status_label, get_raw_laundry_field_label
 

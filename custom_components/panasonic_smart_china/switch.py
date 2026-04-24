@@ -5,7 +5,9 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import DEVICE_CATEGORY_DRYER, DEVICE_TYPE_LAUNDRY, DOMAIN
+from .const import DEVICE_TYPE_LAUNDRY, DOMAIN
+from .data.dryer import DRYER_SWITCH_FIELDS
+from .data.washer import WASHER_SWITCH_FIELDS
 from .entity import PanasonicCoordinatorEntity
 
 
@@ -23,22 +25,9 @@ async def async_setup_entry(
     ]
 
     if coordinator.is_dryer:
-        entities.extend(
-            [
-                PanasonicLaundrySwitchEntity(coordinator, "easyIroning", "免熨烫"),
-                PanasonicLaundrySwitchEntity(coordinator, "mute", "免打扰"),
-                PanasonicLaundrySwitchEntity(coordinator, "delayClothes", "延时添衣"),
-            ]
-        )
+        entities.extend(PanasonicLaundrySwitchEntity(coordinator, field, name) for field, name in DRYER_SWITCH_FIELDS)
     else:
-        entities.extend(
-            [
-                PanasonicLaundrySwitchEntity(coordinator, "activeFoam", "活性泡"),
-                PanasonicLaundrySwitchEntity(coordinator, "extraRinse", "额外漂洗"),
-                PanasonicLaundrySwitchEntity(coordinator, "preWash", "预洗"),
-                PanasonicLaundrySwitchEntity(coordinator, "easyIroning", "免熨烫"),
-            ]
-        )
+        entities.extend(PanasonicLaundrySwitchEntity(coordinator, field, name) for field, name in WASHER_SWITCH_FIELDS)
 
     async_add_entities(entities)
 

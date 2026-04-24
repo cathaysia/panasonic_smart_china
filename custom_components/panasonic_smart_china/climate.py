@@ -13,15 +13,10 @@ from homeassistant.const import ATTR_TEMPERATURE, STATE_UNAVAILABLE, STATE_UNKNO
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .const import (
-    CONF_CONTROLLER_MODEL,
-    CONF_SENSOR_ID,
-    DEVICE_TYPE_AIR_CONDITIONER,
-    FAN_MUTE,
-    SUPPORTED_CONTROLLERS,
-)
-from .entity import PanasonicCoordinatorEntity
 from .const import DOMAIN
+from .const import CONF_CONTROLLER_MODEL, CONF_SENSOR_ID, DEVICE_TYPE_AIR_CONDITIONER
+from .data.air_conditioner import DEFAULT_CONTROLLER_MODEL, FAN_MUTE, SUPPORTED_CONTROLLERS
+from .entity import PanasonicCoordinatorEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +37,7 @@ class PanasonicACEntity(PanasonicCoordinatorEntity, ClimateEntity):
         super().__init__(coordinator)
         self._hass = hass
         self._sensor_id = entry.data.get(CONF_SENSOR_ID)
-        model = entry.data.get(CONF_CONTROLLER_MODEL, "CZ-RD501DW2")
+        model = entry.data.get(CONF_CONTROLLER_MODEL, DEFAULT_CONTROLLER_MODEL)
         self._profile = SUPPORTED_CONTROLLERS.get(model) or list(SUPPORTED_CONTROLLERS.values())[0]
         self._temp_scale = self._profile.get("temp_scale", 2)
         self._hvac_map = self._profile.get("hvac_mapping", {})

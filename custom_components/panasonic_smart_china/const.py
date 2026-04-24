@@ -115,3 +115,146 @@ LAUNDRY_STATUS_LABELS = {
     11: "固件更新中",
     12: "固件更新完成",
 }
+
+WASHER_SPIN_SPEED_OPTIONS = {
+    0: "500 转/分",
+    1: "600 转/分",
+    2: "700 转/分",
+    3: "900 转/分",
+    4: "1000 转/分",
+    5: "1200 转/分",
+    15: "--",
+}
+
+WASHER_WATER_LEVEL_OPTIONS = {
+    1: "低",
+    2: "中",
+    4: "高",
+    15: "--",
+}
+
+WASHER_TEMPERATURE_OPTIONS = {
+    0: "冷水",
+    1: "30°C",
+    2: "40°C",
+    3: "50°C",
+    4: "60°C",
+    5: "95°C",
+    15: "--",
+}
+
+TOP_LOAD_WATER_LEVEL_OPTIONS = {
+    1: "18L",
+    3: "25L",
+    4: "33L",
+    5: "38L",
+    6: "42L",
+    7: "45L",
+    8: "48L",
+    9: "51L",
+    10: "55L",
+    12: "62L",
+}
+
+TOP_LOAD_RINSE_OPTIONS = {
+    0: "无",
+    1: "蓄水 1 次",
+    2: "蓄水 2 次",
+    3: "蓄水 3 次",
+    4: "注水 1 次",
+    5: "注水 2 次",
+    6: "注水 3 次",
+}
+
+DRYER_DRY_SPEND_OPTIONS = {
+    1: "1 级",
+    2: "2 级",
+    3: "3 级",
+    4: "4 级",
+    5: "5 级",
+}
+
+DRYER_DRY_MODE_OPTIONS = {
+    1: "熨衣",
+    2: "即穿",
+    3: "入柜",
+    4: "暖衣",
+}
+
+DRYER_DRY_TEMP_OPTIONS = {
+    1: "40°C",
+    2: "45°C",
+    3: "50°C",
+    4: "55°C",
+    5: "60°C",
+    6: "65°C",
+}
+
+DRYER_AIR_VOLUME_OPTIONS = {
+    1: "1 档",
+    2: "2 档",
+    3: "3 档",
+}
+
+DRYER_DRY_TYPE_OPTIONS = {
+    1: "低温烘干",
+    2: "节能",
+    3: "快速",
+}
+
+DRYER_FRESHEN_OPTIONS = {
+    0: "关",
+    2: "2 小时",
+    3: "3 小时",
+    4: "4 小时",
+    5: "5 小时",
+    6: "6 小时",
+    7: "7 小时",
+    8: "8 小时",
+    9: "9 小时",
+    10: "10 小时",
+}
+
+RAW_LAUNDRY_FIELD_LABELS = {
+    "program": "程序 ID",
+    "runingStage": "运行阶段",
+    "runingStatus": "运行状态 ID",
+    "timeDelayTotal": "预约时长",
+    "timeDelayResidual": "预约剩余",
+    "runingTimeTotal": "运行总时长",
+    "runingTimeResidual": "运行剩余时长",
+    "spendTime": "本次用时",
+    "childLock": "童锁",
+    "remoteEnable": "远程可用",
+    "remoteStatus": "远程状态",
+    "bodyOperating": "本体操作中",
+    "bodyHandle": "本体处理中",
+    "bodyMode": "本体模式",
+    "gateStatus": "机门状态",
+    "gateFault": "机门故障",
+    "powerStatus": "电源状态",
+    "temperature": "温度 ID",
+    "spinSpeed": "转速 ID",
+    "waterLevel": "水位 ID",
+    "washCycleOrg": "洗涤行程",
+    "rinseCycleOrg": "漂洗行程",
+    "spinCycleOrg": "脱水行程",
+    "washTime": "洗涤时间",
+    "rinseTime": "漂洗设置",
+    "spinTime": "脱水时间",
+    "activeFoam": "活性泡",
+    "agPlus": "光动银",
+    "extraRinse": "额外漂洗",
+    "preWash": "预洗",
+    "easyIroning": "免熨烫",
+    "drySpend": "干衣度 ID",
+    "dryMode": "干衣模式 ID",
+    "dryTemp": "干衣温度 ID",
+    "dryTime": "干衣时间",
+    "dryType": "干衣类型 ID",
+    "airVo": "风量 ID",
+    "delayClothes": "延时添衣",
+    "freshenSetTime": "清新保持时长",
+    "mute": "静音",
+    "otaStatus": "OTA 状态",
+}

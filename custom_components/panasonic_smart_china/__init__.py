@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from .const import DOMAIN
 from .coordinator import PanasonicDeviceCoordinator
 
-PLATFORMS = ["climate", "sensor", "button", "select"]
+PLATFORMS = ["climate", "sensor", "button", "select", "switch", "number"]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

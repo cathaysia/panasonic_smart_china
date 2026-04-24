@@ -75,6 +75,10 @@ class PanasonicDeviceCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def is_dryer(self) -> bool:
         return self.device_category == DEVICE_CATEGORY_DRYER
 
+    @property
+    def is_top_load(self) -> bool:
+        return is_top_load_laundry_model(self.device_model)
+
     def get_status_code(self) -> int | None:
         if not self.data:
             return None

@@ -68,6 +68,34 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if DOMAIN in self.hass.data:
                 self.hass.data[DOMAIN]["session"] = None
 
+        if user_input is None:
+            saved_credentials = self._get_saved_credentials()
+            if saved_credentials:
+                try:
+                    usr_id, ssid, devices = await self._authenticate_full_flow(
+                        saved_credentials[CONF_USERNAME], saved_credentials[CONF_PASSWORD]
+                    )
+
+                    if devices:
+                        self._login_data = {
+                            CONF_USR_ID: usr_id,
+                            CONF_SSID: ssid,
+                            CONF_USERNAME: saved_credentials[CONF_USERNAME],
+                            CONF_PASSWORD: saved_credentials[CONF_PASSWORD],
+                        }
+                        self._devices = devices
+                        self.hass.data.setdefault(DOMAIN, {})
+                        self.hass.data[DOMAIN]["session"] = {
+                            CONF_USR_ID: usr_id,
+                            CONF_SSID: ssid,
+                            "devices": devices,
+                            CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
+                            CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
+                        }
+                        return await self.async_step_device()
+                except Exception as err:
+                    _LOGGER.warning("Auto login with stored credentials failed: %s", err)
+
         if user_input is not None:
             try:
                 usr_id, ssid, devices = await self._authenticate_full_flow(
@@ -77,7 +105,12 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if not devices:
                     return self.async_abort(reason="no_devices_found")
 
-                self._login_data = {CONF_USR_ID: usr_id, CONF_SSID: ssid}
+                self._login_data = {
+                    CONF_USR_ID: usr_id,
+                    CONF_SSID: ssid,
+                    CONF_USERNAME: user_input[CONF_USERNAME],
+                    CONF_PASSWORD: user_input[CONF_PASSWORD],
+                }
                 self._devices = devices
                 self.hass.data.setdefault(DOMAIN, {})
                 self.hass.data[DOMAIN]["session"] = {
@@ -195,6 +228,8 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         data = {
             CONF_USR_ID: self._login_data[CONF_USR_ID],
             CONF_SSID: self._login_data[CONF_SSID],
+            CONF_USERNAME: self._login_data[CONF_USERNAME],
+            CONF_PASSWORD: self._login_data[CONF_PASSWORD],
             CONF_DEVICE_ID: selected_dev_id,
             CONF_TOKEN: token,
             CONF_DEVICE_CATEGORY: get_device_category(selected_dev_id),
@@ -224,6 +259,8 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._login_data = {
             CONF_USR_ID: import_data[CONF_USR_ID],
             CONF_SSID: import_data[CONF_SSID],
+            CONF_USERNAME: import_data[CONF_USERNAME],
+            CONF_PASSWORD: import_data[CONF_PASSWORD],
         }
         self._temp_login_info = {
             CONF_FAMILY_ID: import_data.get(CONF_FAMILY_ID),
@@ -245,6 +282,8 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data={
                 CONF_USR_ID: self._login_data[CONF_USR_ID],
                 CONF_SSID: self._login_data[CONF_SSID],
+                CONF_USERNAME: self._login_data[CONF_USERNAME],
+                CONF_PASSWORD: self._login_data[CONF_PASSWORD],
                 CONF_DEVICE_ID: device_id,
                 CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
                 CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
@@ -256,6 +295,17 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return any(
             entry.data.get(CONF_DEVICE_ID) == device_id for entry in self.hass.config_entries.async_entries(DOMAIN)
         )
+
+    def _get_saved_credentials(self) -> dict[str, str] | None:
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            username = entry.data.get(CONF_USERNAME)
+            password = entry.data.get(CONF_PASSWORD)
+            if username and password:
+                return {
+                    CONF_USERNAME: username,
+                    CONF_PASSWORD: password,
+                }
+        return None
 
     async def _get_devices_with_ssid(self, usr_id, ssid):
         headers = {"User-Agent": "SmartApp", "Content-Type": "application/json", "Cookie": f"SSID={ssid}"}

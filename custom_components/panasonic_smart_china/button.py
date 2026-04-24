@@ -15,7 +15,7 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     coordinator = hass.data[DOMAIN]["entries"][entry.entry_id]
-    if coordinator.device_type != DEVICE_TYPE_LAUNDRY:
+    if coordinator.device_type != DEVICE_TYPE_LAUNDRY or not coordinator.supports_laundry_control:
         return
 
     async_add_entities(

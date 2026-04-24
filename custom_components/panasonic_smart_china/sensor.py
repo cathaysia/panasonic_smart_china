@@ -44,7 +44,7 @@ class PanasonicLaundryProgramSensor(PanasonicCoordinatorEntity, SensorEntity):
     def __init__(self, coordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.device_id}_laundry_program"
-        self._attr_name = "当前程序"
+        self._attr_name = "当前程序" if not coordinator.is_dryer else "当前模式"
 
     @property
     def native_value(self):

@@ -20,6 +20,7 @@ from .const import (
     CONF_SSID,
     CONF_TOKEN,
     CONF_USR_ID,
+    DEVICE_CATEGORY_DRYER,
     DEVICE_CATEGORY_LAUNDRY,
     DEVICE_TYPE_AIR_CONDITIONER,
 )
@@ -47,6 +48,7 @@ class PanasonicDeviceCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.device_id,
             entry.data[CONF_TOKEN],
             entry.data[CONF_SSID],
+            self.device_category,
         )
 
         super().__init__(
@@ -60,10 +62,18 @@ class PanasonicDeviceCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def has_program_select(self) -> bool:
         return bool(self.get_program_map())
 
+    @property
+    def supports_laundry_control(self) -> bool:
+        return self.device_category == DEVICE_CATEGORY_LAUNDRY
+
     def get_program_map(self) -> dict[int, str]:
         if self.device_type == DEVICE_TYPE_AIR_CONDITIONER or self.device_category != DEVICE_CATEGORY_LAUNDRY:
             return {}
         return get_laundry_program_map(self.device_model)
+
+    @property
+    def is_dryer(self) -> bool:
+        return self.device_category == DEVICE_CATEGORY_DRYER
 
     def get_status_code(self) -> int | None:
         if not self.data:

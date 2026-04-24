@@ -10,7 +10,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import PanasonicApiClient
 from .const import (
-    CONF_CONTROLLER_MODEL,
     CONF_DEVICE_CATEGORY,
     CONF_DEVICE_ID,
     CONF_DEVICE_MODEL,
@@ -22,7 +21,6 @@ from .const import (
     CONF_USR_ID,
     DEVICE_CATEGORY_DRYER,
     DEVICE_CATEGORY_LAUNDRY,
-    DEVICE_TYPE_AIR_CONDITIONER,
 )
 from .utils import get_laundry_program_map, get_laundry_status_code, is_top_load_laundry_model
 
@@ -40,7 +38,6 @@ class PanasonicDeviceCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device_model = entry.data.get(CONF_DEVICE_MODEL, "")
         self.device_subtype = entry.data.get(CONF_DEVICE_SUBTYPE, "")
         self.device_category = entry.data.get(CONF_DEVICE_CATEGORY, "")
-        self.controller_model = entry.data.get(CONF_CONTROLLER_MODEL)
 
         self.api = PanasonicApiClient(
             hass,
@@ -67,7 +64,7 @@ class PanasonicDeviceCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self.device_category == DEVICE_CATEGORY_LAUNDRY
 
     def get_program_map(self) -> dict[int, str]:
-        if self.device_type == DEVICE_TYPE_AIR_CONDITIONER or self.device_category != DEVICE_CATEGORY_LAUNDRY:
+        if self.device_category != DEVICE_CATEGORY_LAUNDRY:
             return {}
         return get_laundry_program_map(self.device_model)
 
@@ -87,50 +84,9 @@ class PanasonicDeviceCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
-            if self.device_type == DEVICE_TYPE_AIR_CONDITIONER:
-                return await self.api.async_get_ac_status()
             return await self.api.async_get_laundry_status()
         except Exception as err:
             raise UpdateFailed(str(err)) from err
-
-    async def async_set_ac_status(self, changes: dict[str, Any]) -> None:
-        latest = await self.api.async_get_ac_status()
-        merged = dict(latest or self.data or {})
-        merged.update(changes)
-
-        safe_keys = [
-            "runMode",
-            "forceRunning",
-            "runStatus",
-            "remoteForbidMode",
-            "remoteMode",
-            "setTemperature",
-            "setHumidity",
-            "windSet",
-            "exchangeWindSet",
-            "portraitWindSet",
-            "orientationWindSet",
-            "nanoeG",
-            "nanoe",
-            "ecoMode",
-            "muteMode",
-            "filterReset",
-            "powerful",
-            "powerfulMode",
-            "thermoMode",
-            "buzzer",
-            "autoRunMode",
-            "unusualPresent",
-            "runForbidden",
-            "inhaleTemperature",
-            "outsideTemperature",
-            "insideHumidity",
-            "alarmCode",
-            "nanoeModule",
-            "TDWindModule",
-        ]
-        await self.api.async_set_ac_status({key: value for key, value in merged.items() if key in safe_keys})
-        await self.async_request_refresh()
 
     def _build_laundry_payload(self) -> dict[str, Any]:
         data = dict(self.data or {})

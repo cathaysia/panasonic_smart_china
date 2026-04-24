@@ -8,10 +8,8 @@ from .const import (
     CONF_DEVICE_MODEL,
     CONF_DEVICE_NAME,
     CONF_DEVICE_SUBTYPE,
-    DEVICE_CATEGORY_AIR_CONDITIONER,
     DEVICE_CATEGORY_DRYER,
     DEVICE_CATEGORY_LAUNDRY,
-    DEVICE_TYPE_AIR_CONDITIONER,
     DEVICE_TYPE_LAUNDRY,
     DEVICE_TYPE_UNKNOWN,
 )
@@ -75,8 +73,6 @@ def infer_device_model(device_id: str, device_info: dict[str, Any]) -> str:
 
 def infer_device_type(device_id: str, device_info: dict[str, Any]) -> str:
     category = get_device_category(device_id)
-    if category == DEVICE_CATEGORY_AIR_CONDITIONER:
-        return DEVICE_TYPE_AIR_CONDITIONER
     if category in (DEVICE_CATEGORY_LAUNDRY, DEVICE_CATEGORY_DRYER):
         return DEVICE_TYPE_LAUNDRY
 

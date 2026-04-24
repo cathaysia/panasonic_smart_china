@@ -7,9 +7,6 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DEVICE_CATEGORY_DRYER
 
-
-URL_AC_SET = "https://app.psmartcloud.com/App/ACDevSetStatusInfoAW"
-URL_AC_GET = "https://app.psmartcloud.com/App/ACDevGetStatusInfoAW"
 URL_WASHER_GET_STATUS = "https://app.psmartcloud.com/App/WDevGetStatus"
 URL_WASHER_GET_INFO = "https://app.psmartcloud.com/App/WDevGetStatusInfo"
 URL_WASHER_GET_INFO_COMMON = "https://app.psmartcloud.com/App/WDevGetStatusInfoBD158"
@@ -50,25 +47,6 @@ class PanasonicApiClient:
         async with async_timeout.timeout(10):
             response = await session.post(url, json=payload, headers=self._headers, ssl=False)
             return await response.json()
-
-    async def async_get_ac_status(self) -> dict:
-        response = await self._post(
-            URL_AC_GET,
-            {"id": 100, "usrId": self._usr_id, "deviceId": self._device_id, "token": self._token},
-        )
-        return response.get("results", {})
-
-    async def async_set_ac_status(self, params: dict) -> dict:
-        return await self._post(
-            URL_AC_SET,
-            {
-                "id": 200,
-                "usrId": self._usr_id,
-                "deviceId": self._device_id,
-                "token": self._token,
-                "params": params,
-            },
-        )
 
     async def async_get_laundry_status(self) -> dict:
         info_url = URL_WASHER_GET_INFO_COMMON if self._device_category == DEVICE_CATEGORY_DRYER else URL_WASHER_GET_INFO

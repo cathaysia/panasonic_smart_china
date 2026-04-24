@@ -8,10 +8,8 @@ import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.helpers.selector import EntitySelector, EntitySelectorConfig
 
 from .const import (
-    CONF_CONTROLLER_MODEL,
     CONF_DEVICE_CATEGORY,
     CONF_DEVICE_ID,
     CONF_FAMILY_ID,
@@ -20,15 +18,12 @@ from .const import (
     CONF_DEVICE_SUBTYPE,
     CONF_DEVICE_TYPE,
     CONF_REAL_FAMILY_ID,
-    CONF_SENSOR_ID,
     CONF_SSID,
     CONF_TOKEN,
     CONF_USR_ID,
-    DEVICE_TYPE_AIR_CONDITIONER,
     DEVICE_TYPE_UNKNOWN,
     DOMAIN,
 )
-from .data.air_conditioner import SUPPORTED_CONTROLLERS
 from .utils import (
     generate_device_token,
     get_device_category,
@@ -89,7 +84,6 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         cached_session = domain_data.get("session")
         saved_credentials = self._get_saved_credentials()
 
-        print(f"cached session: {cached_session}")
         if cached_session:
             valid_devices = await self._get_devices_with_ssid(
                 cached_session[CONF_USR_ID],
@@ -184,13 +178,7 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not available_devices:
             return self.async_abort(reason="all_devices_configured")
 
-        ac_device_ids = {
-            device_id
-            for device_id, info in self._device_lookup.items()
-            if infer_device_type(device_id, info) == DEVICE_TYPE_AIR_CONDITIONER
-        }
-
-        if user_input is None and len(available_devices) > 1 and not ac_device_ids:
+        if user_input is None and len(available_devices) > 1:
             device_ids = list(available_devices)
             for extra_device_id in device_ids[1:]:
                 await self._async_create_additional_entry(extra_device_id)
@@ -205,11 +193,6 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             dev_info = self._device_lookup.get(
                 selected_dev_id, self._devices.get(selected_dev_id, {})
             )
-            device_type = infer_device_type(selected_dev_id, dev_info)
-            if device_type == DEVICE_TYPE_AIR_CONDITIONER:
-                self.context[CONF_DEVICE_ID] = selected_dev_id
-                return await self.async_step_air_conditioner_options()
-
             return self._create_device_entry(selected_dev_id, dev_info)
 
         return self.async_show_form(
@@ -222,40 +205,7 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_air_conditioner_options(self, user_input=None):
-        errors = {}
-        selected_dev_id = self.context.get(CONF_DEVICE_ID)
-        if not selected_dev_id:
-            return await self.async_step_device()
-
-        dev_info = self._device_lookup.get(
-            selected_dev_id, self._devices.get(selected_dev_id, {})
-        )
-        if infer_device_type(selected_dev_id, dev_info) != DEVICE_TYPE_AIR_CONDITIONER:
-            return self._create_device_entry(selected_dev_id, dev_info)
-
-        if user_input is not None:
-            return self._create_device_entry(selected_dev_id, dev_info, user_input)
-
-        controller_options = {
-            key: value["name"] for key, value in SUPPORTED_CONTROLLERS.items()
-        }
-        return self.async_show_form(
-            step_id="air_conditioner_options",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(CONF_CONTROLLER_MODEL, default="CZ-RD501DW2"): vol.In(
-                        controller_options
-                    ),
-                    vol.Optional(CONF_SENSOR_ID): EntitySelector(
-                        EntitySelectorConfig(domain="sensor")
-                    ),
-                }
-            ),
-            errors=errors,
-        )
-
-    def _create_device_entry(self, selected_dev_id, dev_info, user_input=None):
+    def _create_device_entry(self, selected_dev_id, dev_info):
         dev_name = dev_info.get("deviceName", "Panasonic Device")
         device_type = infer_device_type(selected_dev_id, dev_info)
         device_model = infer_device_model(selected_dev_id, dev_info)
@@ -279,10 +229,6 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
             CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
         }
-        if device_type == DEVICE_TYPE_AIR_CONDITIONER and user_input is not None:
-            data[CONF_CONTROLLER_MODEL] = user_input[CONF_CONTROLLER_MODEL]
-            if user_input.get(CONF_SENSOR_ID):
-                data[CONF_SENSOR_ID] = user_input[CONF_SENSOR_ID]
 
         return self.async_create_entry(title=dev_name, data=data)
 
@@ -314,9 +260,6 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return
 
         dev_info = self._device_lookup.get(device_id, self._devices.get(device_id, {}))
-        if infer_device_type(device_id, dev_info) == DEVICE_TYPE_AIR_CONDITIONER:
-            return
-
         await self.hass.config_entries.flow.async_init(
             DOMAIN,
             context={"source": "import_device"},

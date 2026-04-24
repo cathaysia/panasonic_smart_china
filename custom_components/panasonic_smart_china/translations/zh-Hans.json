@@ -11,11 +11,9 @@
       },
       "device": {
         "title": "配置设备",
-        "description": "成功获取设备列表。可添加空调、洗衣机或干衣机；空调可选线控器和室温传感器，其它设备会忽略这些附加项。",
+        "description": "成功获取设备列表。可添加洗衣机或干衣机。",
         "data": {
-          "deviceId": "选择设备",
-          "controller_model": "线控器/遥控器型号",
-          "sensor_entity_id": "关联室温传感器"
+          "deviceId": "选择设备"
         }
       }
     },

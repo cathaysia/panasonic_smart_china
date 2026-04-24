@@ -29,7 +29,12 @@ from .const import (
     DOMAIN,
 )
 from .data.air_conditioner import SUPPORTED_CONTROLLERS
-from .utils import generate_device_token, get_device_category, infer_device_model, infer_device_type
+from .utils import (
+    generate_device_token,
+    get_device_category,
+    infer_device_model,
+    infer_device_type,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,12 +52,44 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._temp_login_info = {}
         self._device_lookup = {}
 
+    def _cache_session(
+        self, usr_id: str, ssid: str, devices: dict | None = None
+    ) -> None:
+        session = {
+            CONF_USR_ID: usr_id,
+            CONF_SSID: ssid,
+            CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
+            CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
+        }
+        if devices is not None:
+            session["devices"] = devices
+
+        self.hass.data.setdefault(DOMAIN, {})["session"] = session
+
+        # Persist the latest session fields so restarts do not fall back to stale SSIDs.
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            if entry.data.get(CONF_USERNAME) != self._login_data.get(
+                CONF_USERNAME
+            ) or entry.data.get(CONF_PASSWORD) != self._login_data.get(CONF_PASSWORD):
+                continue
+
+            updated_data = {
+                **entry.data,
+                CONF_USR_ID: usr_id,
+                CONF_SSID: ssid,
+                CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
+                CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
+            }
+            self.hass.config_entries.async_update_entry(entry, data=updated_data)
+
     async def async_step_user(self, user_input=None):
         errors = {}
 
         domain_data = self.hass.data.get(DOMAIN, {})
         cached_session = domain_data.get("session")
+        saved_credentials = self._get_saved_credentials()
 
+        print(f"cached session: {cached_session}")
         if cached_session:
             valid_devices = await self._get_devices_with_ssid(
                 cached_session[CONF_USR_ID],
@@ -63,17 +100,19 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_USR_ID: cached_session[CONF_USR_ID],
                     CONF_SSID: cached_session[CONF_SSID],
                 }
+                if saved_credentials:
+                    self._login_data.update(saved_credentials)
                 self._devices = valid_devices
                 return await self.async_step_device()
             if DOMAIN in self.hass.data:
                 self.hass.data[DOMAIN]["session"] = None
 
         if user_input is None:
-            saved_credentials = self._get_saved_credentials()
             if saved_credentials:
                 try:
                     usr_id, ssid, devices = await self._authenticate_full_flow(
-                        saved_credentials[CONF_USERNAME], saved_credentials[CONF_PASSWORD]
+                        saved_credentials[CONF_USERNAME],
+                        saved_credentials[CONF_PASSWORD],
                     )
 
                     if devices:
@@ -84,17 +123,12 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_PASSWORD: saved_credentials[CONF_PASSWORD],
                         }
                         self._devices = devices
-                        self.hass.data.setdefault(DOMAIN, {})
-                        self.hass.data[DOMAIN]["session"] = {
-                            CONF_USR_ID: usr_id,
-                            CONF_SSID: ssid,
-                            "devices": devices,
-                            CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
-                            CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
-                        }
+                        self._cache_session(usr_id, ssid, devices)
                         return await self.async_step_device()
                 except Exception as err:
-                    _LOGGER.warning("Auto login with stored credentials failed: %s", err)
+                    _LOGGER.warning(
+                        "Auto login with stored credentials failed: %s", err
+                    )
 
         if user_input is not None:
             try:
@@ -112,14 +146,7 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_PASSWORD: user_input[CONF_PASSWORD],
                 }
                 self._devices = devices
-                self.hass.data.setdefault(DOMAIN, {})
-                self.hass.data[DOMAIN]["session"] = {
-                    CONF_USR_ID: usr_id,
-                    CONF_SSID: ssid,
-                    "devices": devices,
-                    CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
-                    CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
-                }
+                self._cache_session(usr_id, ssid, devices)
                 return await self.async_step_device()
             except Exception as err:
                 _LOGGER.error("Login failed: %s", err)
@@ -168,12 +195,16 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             for extra_device_id in device_ids[1:]:
                 await self._async_create_additional_entry(extra_device_id)
             primary_device_id = device_ids[0]
-            primary_info = self._device_lookup.get(primary_device_id, self._devices.get(primary_device_id, {}))
+            primary_info = self._device_lookup.get(
+                primary_device_id, self._devices.get(primary_device_id, {})
+            )
             return self._create_device_entry(primary_device_id, primary_info)
 
         if user_input is not None:
             selected_dev_id = user_input[CONF_DEVICE_ID]
-            dev_info = self._device_lookup.get(selected_dev_id, self._devices.get(selected_dev_id, {}))
+            dev_info = self._device_lookup.get(
+                selected_dev_id, self._devices.get(selected_dev_id, {})
+            )
             device_type = infer_device_type(selected_dev_id, dev_info)
             if device_type == DEVICE_TYPE_AIR_CONDITIONER:
                 self.context[CONF_DEVICE_ID] = selected_dev_id
@@ -197,20 +228,28 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not selected_dev_id:
             return await self.async_step_device()
 
-        dev_info = self._device_lookup.get(selected_dev_id, self._devices.get(selected_dev_id, {}))
+        dev_info = self._device_lookup.get(
+            selected_dev_id, self._devices.get(selected_dev_id, {})
+        )
         if infer_device_type(selected_dev_id, dev_info) != DEVICE_TYPE_AIR_CONDITIONER:
             return self._create_device_entry(selected_dev_id, dev_info)
 
         if user_input is not None:
             return self._create_device_entry(selected_dev_id, dev_info, user_input)
 
-        controller_options = {key: value["name"] for key, value in SUPPORTED_CONTROLLERS.items()}
+        controller_options = {
+            key: value["name"] for key, value in SUPPORTED_CONTROLLERS.items()
+        }
         return self.async_show_form(
             step_id="air_conditioner_options",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_CONTROLLER_MODEL, default="CZ-RD501DW2"): vol.In(controller_options),
-                    vol.Optional(CONF_SENSOR_ID): EntitySelector(EntitySelectorConfig(domain="sensor")),
+                    vol.Optional(CONF_CONTROLLER_MODEL, default="CZ-RD501DW2"): vol.In(
+                        controller_options
+                    ),
+                    vol.Optional(CONF_SENSOR_ID): EntitySelector(
+                        EntitySelectorConfig(domain="sensor")
+                    ),
                 }
             ),
             errors=errors,
@@ -247,7 +286,9 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_create_entry(title=dev_name, data=data)
 
-    async def async_step_import_device(self, import_data: Mapping[str, object] | None = None):
+    async def async_step_import_device(
+        self, import_data: Mapping[str, object] | None = None
+    ):
         if not import_data:
             return self.async_abort(reason="cannot_connect")
 
@@ -293,7 +334,8 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def _device_id_exists(self, device_id: str) -> bool:
         return any(
-            entry.data.get(CONF_DEVICE_ID) == device_id for entry in self.hass.config_entries.async_entries(DOMAIN)
+            entry.data.get(CONF_DEVICE_ID) == device_id
+            for entry in self.hass.config_entries.async_entries(DOMAIN)
         )
 
     def _get_saved_credentials(self) -> dict[str, str] | None:
@@ -308,7 +350,11 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return None
 
     async def _get_devices_with_ssid(self, usr_id, ssid):
-        headers = {"User-Agent": "SmartApp", "Content-Type": "application/json", "Cookie": f"SSID={ssid}"}
+        headers = {
+            "User-Agent": "SmartApp",
+            "Content-Type": "application/json",
+            "Cookie": f"SSID={ssid}",
+        }
         domain_data = self.hass.data.get(DOMAIN, {})
         session_cache = domain_data.get("session")
         if not session_cache or "familyId" not in session_cache:
@@ -335,7 +381,10 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     dev_res = await resp.json()
                     if "results" not in dev_res:
                         return None
-                    return {dev["deviceId"]: dev["params"] for dev in dev_res["results"]["devList"]}
+                    return {
+                        dev["deviceId"]: dev["params"]
+                        for dev in dev_res["results"]["devList"]
+                    }
         except Exception:
             return None
 
@@ -355,7 +404,9 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             pwd_md5 = hashlib.md5(password.encode()).hexdigest().upper()
             inter_md5 = hashlib.md5((pwd_md5 + username).encode()).hexdigest().upper()
-            final_token = hashlib.md5((inter_md5 + token_start).encode()).hexdigest().upper()
+            final_token = (
+                hashlib.md5((inter_md5 + token_start).encode()).hexdigest().upper()
+            )
 
             async with session.post(
                 URL_LOGIN,

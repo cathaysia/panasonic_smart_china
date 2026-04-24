@@ -10,16 +10,20 @@ PLATFORMS = ["climate", "sensor", "button", "select"]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    hass.data.setdefault(DOMAIN, {"session": None, "entries": {}})
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    domain_data.setdefault("session", None)
+    domain_data.setdefault("entries", {})
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    hass.data.setdefault(DOMAIN, {"session": None, "entries": {}})
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    domain_data.setdefault("session", None)
+    domain_data.setdefault("entries", {})
 
     coordinator = PanasonicDeviceCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
-    hass.data[DOMAIN]["entries"][entry.entry_id] = coordinator
+    domain_data["entries"][entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

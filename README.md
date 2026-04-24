@@ -44,6 +44,10 @@
 4.  搜索 `Panasonic Smart China` 点击下载。
 5.  重启 Home Assistant。
 
+如果您已经安装 HACS，可点击下面按钮一键打开该仓库并开始安装：
+
+[![Open your Home Assistant instance and open the Panasonic Smart China repository inside HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=cathaysia&repository=panasonic_smart_china&category=integration)
+
 ### 方法二：手动安装
 
 1.  下载本项目源码。
@@ -52,6 +56,10 @@
 4.  重启 Home Assistant。
 
 ## ⚙️ 配置指南
+
+如果已经完成安装，也可以直接使用 My Home Assistant 按钮开始配置：
+
+[![Open your Home Assistant instance and start setting up Panasonic Smart China](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=panasonic_smart_china)
 
 1.  进入 **配置** -> **设备与服务** -> **添加集成**。
 2.  搜索 **Panasonic Smart China**。

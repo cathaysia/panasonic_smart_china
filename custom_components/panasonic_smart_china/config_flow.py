@@ -60,36 +60,6 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._temp_login_info = {}
         self._device_lookup = {}
 
-    def _cache_session(
-        self, usr_id: str, ssid: str, devices: dict | None = None
-    ) -> None:
-        session = {
-            CONF_USR_ID: usr_id,
-            CONF_SSID: ssid,
-            CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
-            CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
-        }
-        if devices is not None:
-            session["devices"] = devices
-
-        self.hass.data.setdefault(DOMAIN, {})["session"] = session
-
-        # Persist the latest session fields so restarts do not fall back to stale SSIDs.
-        for entry in self.hass.config_entries.async_entries(DOMAIN):
-            if entry.data.get(CONF_USERNAME) != self._login_data.get(
-                CONF_USERNAME
-            ) or entry.data.get(CONF_PASSWORD) != self._login_data.get(CONF_PASSWORD):
-                continue
-
-            updated_data = {
-                **entry.data,
-                CONF_USR_ID: usr_id,
-                CONF_SSID: ssid,
-                CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
-                CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
-            }
-            self.hass.config_entries.async_update_entry(entry, data=updated_data)
-
     # Only called when setup plugin
     async def async_step_user(self, user_input=None):
         if user_input is None:
@@ -103,7 +73,7 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
             )
 
-        usr_id, ssid = await self._authenticate_full_flow(
+        usr_id, ssid = await self._login(
             user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
         )
 
@@ -131,14 +101,14 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data=session_info,
         )
 
-    async def async_step_reconfigure(self, _user_input=None):
+    async def async_step_reconfigure(self, _user_input):
         domain_data = self.hass.data.get(DOMAIN, {})
         session_cache: CachedSession = domain_data.get("session")
         if session_cache is None:
             return self.async_abort(reason="no_session_cache")
-        await self.async_step_device(session_cache["usrId"], session_cache["SSID"])
+        await self._async_step_device(session_cache["usrId"], session_cache["SSID"])
 
-    async def async_step_device(self, usr_id: str, ssid: str):
+    async def _async_step_device(self, usr_id: str, ssid: str):
         existing_ids = self._async_current_ids()
 
         available_devices = {}
@@ -246,7 +216,7 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         domain_data = self.hass.data.get(DOMAIN, {})
         session_cache = domain_data.get("session")
         if not session_cache or "familyId" not in session_cache:
-            return None
+            return {}
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -265,18 +235,18 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     ssl=False,
                 ) as resp:
                     if resp.status != 200:
-                        return None
+                        return {}
                     dev_res = await resp.json()
                     if "results" not in dev_res:
-                        return None
+                        return {}
                     return {
                         dev["deviceId"]: dev["params"]
                         for dev in dev_res["results"]["devList"]
                     }
         except Exception:
-            return None
+            return {}
 
-    async def _authenticate_full_flow(self, username, password):
+    async def _login(self, username, password):
         headers = {"User-Agent": "SmartApp", "Content-Type": "application/json"}
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -312,8 +282,8 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     raise RuntimeError("Login failed")
 
                 res = login_res["results"]
-                real_usr_id = res["usrId"]
-                ssid = res["ssId"]
+                real_usr_id: str = res["usrId"]
+                ssid: str = res["ssId"]
                 self._temp_login_info = {
                     CONF_REAL_FAMILY_ID: res[CONF_REAL_FAMILY_ID],
                     CONF_FAMILY_ID: res[CONF_FAMILY_ID],

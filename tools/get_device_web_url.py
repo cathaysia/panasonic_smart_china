@@ -150,7 +150,9 @@ def generate_html_link(usr_id, ssid, device):
 
 if __name__ == "__main__":
     # 忽略 SSL 警告
-    requests.packages.urllib3.disable_warnings()
+    import urllib3
+
+    urllib3.disable_warnings()
 
     usr_id, ssid, dev_list = login_and_get_devices()
 

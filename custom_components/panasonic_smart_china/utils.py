@@ -4,7 +4,6 @@ import hashlib
 from typing import Any
 
 from .const import (
-    CONF_DEVICE_CATEGORY,
     CONF_DEVICE_MODEL,
     CONF_DEVICE_NAME,
     CONF_DEVICE_SUBTYPE,
@@ -14,10 +13,6 @@ from .const import (
     DEVICE_TYPE_UNKNOWN,
 )
 from .data.laundry import (
-    get_laundry_option_label,
-    get_laundry_program_map,
-    get_laundry_status_label,
-    get_raw_laundry_field_label,
     is_top_load_laundry_model,
 )
 
@@ -77,9 +72,7 @@ def infer_device_type(device_id: str, device_info: dict[str, Any]) -> str:
         return DEVICE_TYPE_LAUNDRY
 
     text = " ".join(
-        str(
-            device_info.get(key, "")
-        )
+        str(device_info.get(key, ""))
         for key in (
             CONF_DEVICE_NAME,
             CONF_DEVICE_SUBTYPE,
@@ -103,8 +96,10 @@ def get_laundry_status_code(data: dict[str, Any]) -> int | None:
         return 6
     if data.get("otaStatus"):
         return 11
-    if data.get("bodyOperating") or (not is_top_load and data.get("bodyMode")) or (
-        is_top_load and data.get("bodyMode") and data.get("program") != 9
+    if (
+        data.get("bodyOperating")
+        or (not is_top_load and data.get("bodyMode"))
+        or (is_top_load and data.get("bodyMode") and data.get("program") != 9)
     ):
         return 8
     if data.get("bodyHandle"):
@@ -129,7 +124,10 @@ def get_laundry_status_code(data: dict[str, Any]) -> int | None:
     if int(data.get("runingStatus", 0)) == 0 and status == 2:
         status = 3
 
-    if status == 0 and ((not is_top_load and data.get("program") in (17, 18)) or (is_top_load and data.get("program") == 9)):
+    if status == 0 and (
+        (not is_top_load and data.get("program") in (17, 18))
+        or (is_top_load and data.get("program") == 9)
+    ):
         status = 8
 
     return status

@@ -32,7 +32,10 @@ async def async_setup_entry(
     else:
         fields = WASHER_SELECT_FIELDS
 
-    entities.extend(PanasonicLaundryOptionSelect(coordinator, field, name, values) for field, name, values in fields)
+    entities.extend(
+        PanasonicLaundryOptionSelect(coordinator, field, name, values)
+        for field, name, values in fields
+    )
     async_add_entities(entities)
 
 
@@ -71,17 +74,35 @@ class PanasonicLaundryOptionSelect(PanasonicCoordinatorEntity, SelectEntity):
     @property
     def options(self):
         return [
-            get_laundry_option_label(self.coordinator.device_category, self.coordinator.device_model, self._field, value)
+            get_laundry_option_label(
+                self.coordinator.device_category,
+                self.coordinator.device_model,
+                self._field,
+                value,
+            )
             for value in self._values
         ]
 
     @property
     def current_option(self):
         value = (self.coordinator.data or {}).get(self._field)
-        return get_laundry_option_label(self.coordinator.device_category, self.coordinator.device_model, self._field, value)
+        return get_laundry_option_label(
+            self.coordinator.device_category,
+            self.coordinator.device_model,
+            self._field,
+            value,
+        )
 
     async def async_select_option(self, option: str) -> None:
         for value in self._values:
-            if get_laundry_option_label(self.coordinator.device_category, self.coordinator.device_model, self._field, value) == option:
+            if (
+                get_laundry_option_label(
+                    self.coordinator.device_category,
+                    self.coordinator.device_model,
+                    self._field,
+                    value,
+                )
+                == option
+            ):
                 await self.coordinator.async_set_laundry_status({self._field: value})
                 return

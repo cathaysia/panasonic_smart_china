@@ -90,7 +90,9 @@ def get_laundry_status_label(status_code: int | None) -> str | None:
     return LAUNDRY_STATUS_LABELS.get(status_code, str(status_code))
 
 
-def get_laundry_option_label(device_category: str, model: str, field: str, value: Any) -> str | None:
+def get_laundry_option_label(
+    device_category: str, model: str, field: str, value: Any
+) -> str | None:
     if value is None:
         return None
 

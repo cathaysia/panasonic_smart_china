@@ -14,5 +14,7 @@ class PanasonicCoordinatorEntity(CoordinatorEntity):
             "identifiers": {(DOMAIN, self.coordinator.device_id)},
             "name": self.coordinator.device_name,
             "manufacturer": "Panasonic",
-            "model": self.coordinator.device_model or self.coordinator.device_subtype or self.coordinator.device_category,
+            "model": self.coordinator.device_model
+            or self.coordinator.device_subtype
+            or self.coordinator.device_category,
         }

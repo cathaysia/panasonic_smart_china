@@ -20,11 +20,17 @@ async def async_setup_entry(
     if coordinator.device_type != DEVICE_TYPE_LAUNDRY:
         return
 
-    fields = DRYER_NUMBER_FIELDS if coordinator.is_dryer else (
-        TOP_LOAD_NUMBER_FIELDS if coordinator.is_top_load else WASHER_NUMBER_FIELDS
+    fields = (
+        DRYER_NUMBER_FIELDS
+        if coordinator.is_dryer
+        else (
+            TOP_LOAD_NUMBER_FIELDS if coordinator.is_top_load else WASHER_NUMBER_FIELDS
+        )
     )
     async_add_entities(
-        PanasonicLaundryNumberEntity(coordinator, field, name, min_value, max_value, step, unit)
+        PanasonicLaundryNumberEntity(
+            coordinator, field, name, min_value, max_value, step, unit
+        )
         for field, name, min_value, max_value, step, unit in fields
     )
 

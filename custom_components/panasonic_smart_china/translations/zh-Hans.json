@@ -1,31 +1,31 @@
 {
-  "config": {
-    "step": {
-      "user": {
-        "title": "登录松下账号",
-        "description": "请输入中国区“松下智能家电” App 的账号密码。首次登录会缓存会话，后续添加设备时会优先复用。",
-        "data": {
-          "username": "手机号",
-          "password": "密码"
-        }
-      },
-      "device": {
-        "title": "配置设备",
-        "description": "成功获取设备列表。可添加洗衣机或干衣机。",
-        "data": {
-          "deviceId": "选择设备"
-        }
-      }
-    },
-    "error": {
-      "cannot_connect": "登录失败：请检查账号密码或网络连接",
-      "no_devices_found": "未找到可用设备",
-      "token_generation_failed": "Token 生成失败：设备 ID 格式不正确",
-      "all_devices_configured": "所有受支持设备均已添加"
-    },
-    "abort": {
-      "already_configured": "该设备已配置",
-      "reauth_successful": "重新认证成功"
-    }
-  }
+	"config": {
+		"step": {
+			"user": {
+				"title": "登录松下账号",
+				"description": "请输入中国区“松下智能家电” App 的账号密码。首次登录会缓存会话，后续添加设备时会优先复用。",
+				"data": {
+					"username": "手机号",
+					"password": "密码"
+				}
+			},
+			"device": {
+				"title": "配置设备",
+				"description": "成功获取设备列表。可添加洗衣机或干衣机。",
+				"data": {
+					"deviceId": "选择设备"
+				}
+			}
+		},
+		"error": {
+			"cannot_connect": "登录失败：请检查账号密码或网络连接",
+			"no_devices_found": "未找到可用设备",
+			"token_generation_failed": "Token 生成失败：设备 ID 格式不正确",
+			"all_devices_configured": "所有受支持设备均已添加"
+		},
+		"abort": {
+			"already_configured": "该设备已配置",
+			"reauth_successful": "重新认证成功"
+		}
+	}
 }

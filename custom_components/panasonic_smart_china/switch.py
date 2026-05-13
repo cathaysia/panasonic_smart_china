@@ -25,9 +25,15 @@ async def async_setup_entry(
     ]
 
     if coordinator.is_dryer:
-        entities.extend(PanasonicLaundrySwitchEntity(coordinator, field, name) for field, name in DRYER_SWITCH_FIELDS)
+        entities.extend(
+            PanasonicLaundrySwitchEntity(coordinator, field, name)
+            for field, name in DRYER_SWITCH_FIELDS
+        )
     else:
-        entities.extend(PanasonicLaundrySwitchEntity(coordinator, field, name) for field, name in WASHER_SWITCH_FIELDS)
+        entities.extend(
+            PanasonicLaundrySwitchEntity(coordinator, field, name)
+            for field, name in WASHER_SWITCH_FIELDS
+        )
 
     async_add_entities(entities)
 

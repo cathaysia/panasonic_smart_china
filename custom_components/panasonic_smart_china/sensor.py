@@ -10,7 +10,12 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import DEVICE_TYPE_LAUNDRY, DOMAIN
 from .data.laundry import RAW_LAUNDRY_FIELD_LABELS
 from .entity import PanasonicCoordinatorEntity
-from .utils import get_laundry_option_label, get_laundry_program_map, get_laundry_status_label, get_raw_laundry_field_label
+from .utils import (
+    get_laundry_option_label,
+    get_laundry_program_map,
+    get_laundry_status_label,
+    get_raw_laundry_field_label,
+)
 
 
 async def async_setup_entry(
@@ -125,7 +130,9 @@ class PanasonicLaundryRawFieldSensor(PanasonicCoordinatorEntity, SensorEntity):
             return None
 
         if self._field == "program":
-            return get_laundry_program_map(self.coordinator.device_model).get(int(value), str(value))
+            return get_laundry_program_map(self.coordinator.device_model).get(
+                int(value), str(value)
+            )
 
         option_label = get_laundry_option_label(
             self.coordinator.device_category,

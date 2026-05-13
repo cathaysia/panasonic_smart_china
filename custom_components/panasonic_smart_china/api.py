@@ -45,18 +45,34 @@ class PanasonicApiClient:
     async def _post(self, url: str, payload: dict) -> dict:
         session = async_get_clientsession(self._hass)
         async with async_timeout.timeout(10):
-            response = await session.post(url, json=payload, headers=self._headers, ssl=False)
+            response = await session.post(
+                url, json=payload, headers=self._headers, ssl=False
+            )
             return await response.json()
 
     async def async_get_laundry_status(self) -> dict:
-        info_url = URL_WASHER_GET_INFO_COMMON if self._device_category == DEVICE_CATEGORY_DRYER else URL_WASHER_GET_INFO
+        info_url = (
+            URL_WASHER_GET_INFO_COMMON
+            if self._device_category == DEVICE_CATEGORY_DRYER
+            else URL_WASHER_GET_INFO
+        )
         status_res = await self._post(
             URL_WASHER_GET_STATUS,
-            {"id": 100, "usrId": self._usr_id, "deviceId": self._device_id, "token": self._token},
+            {
+                "id": 100,
+                "usrId": self._usr_id,
+                "deviceId": self._device_id,
+                "token": self._token,
+            },
         )
         info_res = await self._post(
             info_url,
-            {"id": 101, "usrId": self._usr_id, "deviceId": self._device_id, "token": self._token},
+            {
+                "id": 101,
+                "usrId": self._usr_id,
+                "deviceId": self._device_id,
+                "token": self._token,
+            },
         )
 
         data = dict(info_res.get("results", {}))
@@ -64,7 +80,11 @@ class PanasonicApiClient:
         return data
 
     async def async_set_laundry_status(self, params: dict) -> dict:
-        set_url = URL_WASHER_SET_COMMON if self._device_category == DEVICE_CATEGORY_DRYER else URL_WASHER_SET
+        set_url = (
+            URL_WASHER_SET_COMMON
+            if self._device_category == DEVICE_CATEGORY_DRYER
+            else URL_WASHER_SET
+        )
         return await self._post(
             set_url,
             {

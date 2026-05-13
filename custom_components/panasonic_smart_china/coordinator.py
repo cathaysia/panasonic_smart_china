@@ -22,7 +22,11 @@ from .const import (
     DEVICE_CATEGORY_DRYER,
     DEVICE_CATEGORY_LAUNDRY,
 )
-from .utils import get_laundry_program_map, get_laundry_status_code, is_top_load_laundry_model
+from .utils import (
+    get_laundry_program_map,
+    get_laundry_status_code,
+    is_top_load_laundry_model,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -154,4 +158,6 @@ class PanasonicDeviceCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self.async_set_laundry_status({"powerStatus": 1 if powered_on else 0})
 
     async def async_select_laundry_program(self, program_id: int) -> None:
-        await self.async_set_laundry_status({"program": program_id, "runingStatus": 0, "powerStatus": 1})
+        await self.async_set_laundry_status(
+            {"program": program_id, "runingStatus": 0, "powerStatus": 1}
+        )

@@ -1,8 +1,8 @@
 {
 	"domain": "panasonic_smart_china",
 	"name": "Panasonic Smart China",
-	"documentation": "https://github.com/mcdona1d/panasonic_smart_china",
-	"issue_tracker": "https://github.com/mcdona1d/panasonic_smart_china/issues",
+	"documentation": "https://github.com/cathaysia/panasonic_smart_china",
+	"issue_tracker": "https://github.com/cathaysia/panasonic_smart_china/issues",
 	"dependencies": [],
 	"codeowners": [],
 	"requirements": [],

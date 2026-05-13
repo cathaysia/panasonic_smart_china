@@ -3,18 +3,29 @@ from __future__ import annotations
 import hashlib
 from typing import Any
 
-from .const import (
+from custom_components.panasonic_smart_china.utils.types import (
+    CloudDeviceInfo,
+    DeviceType,
+)
+
+from ..const import (
     CONF_DEVICE_MODEL,
     CONF_DEVICE_NAME,
     CONF_DEVICE_SUBTYPE,
-    DEVICE_CATEGORY_DRYER,
-    DEVICE_CATEGORY_LAUNDRY,
     DEVICE_TYPE_LAUNDRY,
     DEVICE_TYPE_UNKNOWN,
 )
-from .data.laundry import (
+from ..data.laundry import (
     is_top_load_laundry_model,
 )
+
+
+def calc_login_token(username: str, password: str, token_start: str) -> str:
+    pwd_md5 = hashlib.md5(password.encode()).hexdigest().upper()
+    inter_md5 = hashlib.md5((pwd_md5 + username).encode()).hexdigest().upper()
+    final_token = hashlib.md5((inter_md5 + token_start).encode()).hexdigest().upper()
+
+    return final_token
 
 
 def parse_device_id(device_id: str) -> tuple[str, str, str] | None:
@@ -66,9 +77,9 @@ def infer_device_model(device_id: str, device_info: dict[str, Any]) -> str:
     )
 
 
-def infer_device_type(device_id: str, device_info: dict[str, Any]) -> str:
+def infer_device_type(device_id: str, device_info: CloudDeviceInfo) -> str:
     category = get_device_category(device_id)
-    if category in (DEVICE_CATEGORY_LAUNDRY, DEVICE_CATEGORY_DRYER):
+    if category in (DeviceType.LAUNDRY, DeviceType.DRYER):
         return DEVICE_TYPE_LAUNDRY
 
     text = " ".join(

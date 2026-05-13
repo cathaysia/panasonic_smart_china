@@ -22,7 +22,7 @@ from .const import (
     DEVICE_CATEGORY_DRYER,
     DEVICE_CATEGORY_LAUNDRY,
 )
-from .utils import (
+from .utils.utils import (
     get_laundry_program_map,
     get_laundry_status_code,
     is_top_load_laundry_model,

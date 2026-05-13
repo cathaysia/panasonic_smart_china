@@ -1,13 +1,18 @@
 from __future__ import annotations
 
-import hashlib
 import logging
 from collections.abc import Mapping
+import typing
 
 import aiohttp
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+
+from custom_components.panasonic_smart_china.utils.types import (
+    CachedSession,
+    CloudDeviceInfo,
+)
 
 from .const import (
     CONF_DEVICE_CATEGORY,
@@ -21,10 +26,10 @@ from .const import (
     CONF_SSID,
     CONF_TOKEN,
     CONF_USR_ID,
-    DEVICE_TYPE_UNKNOWN,
     DOMAIN,
 )
-from .utils import (
+from .utils.utils import (
+    calc_login_token,
     generate_device_token,
     get_device_category,
     infer_device_model,
@@ -38,11 +43,19 @@ URL_GET_DEV = "https://app.psmartcloud.com/App/UsrGetBindDevInfo"
 URL_GET_TOKEN = "https://app.psmartcloud.com/App/UsrGetToken"
 
 
+class LoginData(typing.TypedDict):
+    usrId: str | None
+    SSID: str | None
+
+
 class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
-        self._login_data = {}
+        self._login_data: LoginData = {
+            "usrId": None,
+            "SSID": None,
+        }
         self._devices = {}
         self._temp_login_info = {}
         self._device_lookup = {}
@@ -77,98 +90,64 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
             self.hass.config_entries.async_update_entry(entry, data=updated_data)
 
+    # Only called when setup plugin
     async def async_step_user(self, user_input=None):
-        errors = {}
-
-        domain_data = self.hass.data.get(DOMAIN, {})
-        cached_session = domain_data.get("session")
-        saved_credentials = self._get_saved_credentials()
-
-        if cached_session:
-            valid_devices = await self._get_devices_with_ssid(
-                cached_session[CONF_USR_ID],
-                cached_session[CONF_SSID],
-            )
-            if valid_devices:
-                self._login_data = {
-                    CONF_USR_ID: cached_session[CONF_USR_ID],
-                    CONF_SSID: cached_session[CONF_SSID],
-                }
-                if saved_credentials:
-                    self._login_data.update(saved_credentials)
-                self._devices = valid_devices
-                return await self.async_step_device()
-            if DOMAIN in self.hass.data:
-                self.hass.data[DOMAIN]["session"] = None
-
         if user_input is None:
-            if saved_credentials:
-                try:
-                    usr_id, ssid, devices = await self._authenticate_full_flow(
-                        saved_credentials[CONF_USERNAME],
-                        saved_credentials[CONF_PASSWORD],
-                    )
+            return self.async_show_form(
+                step_id="user",
+                data_schema=vol.Schema(
+                    {
+                        vol.Required(CONF_USERNAME): str,
+                        vol.Required(CONF_PASSWORD): str,
+                    }
+                ),
+            )
 
-                    if devices:
-                        self._login_data = {
-                            CONF_USR_ID: usr_id,
-                            CONF_SSID: ssid,
-                            CONF_USERNAME: saved_credentials[CONF_USERNAME],
-                            CONF_PASSWORD: saved_credentials[CONF_PASSWORD],
-                        }
-                        self._devices = devices
-                        self._cache_session(usr_id, ssid, devices)
-                        return await self.async_step_device()
-                except Exception as err:
-                    _LOGGER.warning(
-                        "Auto login with stored credentials failed: %s", err
-                    )
-
-        if user_input is not None:
-            try:
-                usr_id, ssid, devices = await self._authenticate_full_flow(
-                    user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
-                )
-
-                if not devices:
-                    return self.async_abort(reason="no_devices_found")
-
-                self._login_data = {
-                    CONF_USR_ID: usr_id,
-                    CONF_SSID: ssid,
-                    CONF_USERNAME: user_input[CONF_USERNAME],
-                    CONF_PASSWORD: user_input[CONF_PASSWORD],
-                }
-                self._devices = devices
-                self._cache_session(usr_id, ssid, devices)
-                return await self.async_step_device()
-            except Exception as err:
-                _LOGGER.error("Login failed: %s", err)
-                errors["base"] = "cannot_connect"
-
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_USERNAME): str,
-                    vol.Required(CONF_PASSWORD): str,
-                }
-            ),
-            errors=errors,
+        usr_id, ssid = await self._authenticate_full_flow(
+            user_input[CONF_USERNAME], user_input[CONF_PASSWORD]
         )
 
-    async def async_step_device(self, user_input=None):
-        errors = {}
+        self._login_data = {
+            CONF_USR_ID: usr_id,
+            CONF_SSID: ssid,
+        }
+        # update global cache
+        session_info = {
+            CONF_USERNAME: user_input[CONF_USERNAME],
+            CONF_PASSWORD: user_input[CONF_PASSWORD],
+            "session": {
+                CONF_USR_ID: usr_id,
+                CONF_SSID: ssid,
+                "devices": [],
+                "familyId": self._temp_login_info.get("familyId"),
+                "realFamilyId": self._temp_login_info.get("realFamilyId"),
+            },
+        }
+
+        self.hass.data[DOMAIN]["session"] = session_info
+
+        return self.async_create_entry(
+            title=f"Panasonic Smart China ({user_input[CONF_USERNAME]})",
+            data=session_info,
+        )
+
+    async def async_step_reconfigure(self, _user_input=None):
+        domain_data = self.hass.data.get(DOMAIN, {})
+        session_cache: CachedSession = domain_data.get("session")
+        if session_cache is None:
+            return self.async_abort(reason="no_session_cache")
+        await self.async_step_device(session_cache["usrId"], session_cache["SSID"])
+
+    async def async_step_device(self, usr_id: str, ssid: str):
         existing_ids = self._async_current_ids()
 
         available_devices = {}
         self._device_lookup = {}
-        for device_id, info in self._devices.items():
-            if f"panasonic_{device_id}" in existing_ids:
-                continue
+        devices = await self._get_devices_with_ssid(usr_id, ssid)
+        print(f"获取设备列表: {devices}")
 
-            device_type = infer_device_type(device_id, info)
-            if device_type == DEVICE_TYPE_UNKNOWN:
+        for device_id, info in devices.items():
+            if f"panasonic_{device_id}" in existing_ids:
                 continue
 
             label = f"{info.get('deviceName', device_id)} ({device_id})"
@@ -178,7 +157,7 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not available_devices:
             return self.async_abort(reason="all_devices_configured")
 
-        if user_input is None and len(available_devices) > 1:
+        if len(available_devices) > 1:
             device_ids = list(available_devices)
             for extra_device_id in device_ids[1:]:
                 await self._async_create_additional_entry(extra_device_id)
@@ -187,23 +166,6 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 primary_device_id, self._devices.get(primary_device_id, {})
             )
             return self._create_device_entry(primary_device_id, primary_info)
-
-        if user_input is not None:
-            selected_dev_id = user_input[CONF_DEVICE_ID]
-            dev_info = self._device_lookup.get(
-                selected_dev_id, self._devices.get(selected_dev_id, {})
-            )
-            return self._create_device_entry(selected_dev_id, dev_info)
-
-        return self.async_show_form(
-            step_id="device",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_DEVICE_ID): vol.In(available_devices),
-                }
-            ),
-            errors=errors,
-        )
 
     def _create_device_entry(self, selected_dev_id, dev_info):
         dev_name = dev_info.get("deviceName", "Panasonic Device")
@@ -217,8 +179,6 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         data = {
             CONF_USR_ID: self._login_data[CONF_USR_ID],
             CONF_SSID: self._login_data[CONF_SSID],
-            CONF_USERNAME: self._login_data[CONF_USERNAME],
-            CONF_PASSWORD: self._login_data[CONF_PASSWORD],
             CONF_DEVICE_ID: selected_dev_id,
             CONF_TOKEN: token,
             CONF_DEVICE_CATEGORY: get_device_category(selected_dev_id),
@@ -242,12 +202,10 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._device_id_exists(selected_dev_id):
             return self.async_abort(reason="already_configured")
 
-        dev_info = dict(import_data.get("device_info", {}))
+        dev_info = import_data.get("device_info", {})
         self._login_data = {
-            CONF_USR_ID: import_data[CONF_USR_ID],
-            CONF_SSID: import_data[CONF_SSID],
-            CONF_USERNAME: import_data[CONF_USERNAME],
-            CONF_PASSWORD: import_data[CONF_PASSWORD],
+            CONF_USR_ID: str(import_data[CONF_USR_ID]),
+            CONF_SSID: str(import_data[CONF_SSID]),
         }
         self._temp_login_info = {
             CONF_FAMILY_ID: import_data.get(CONF_FAMILY_ID),
@@ -266,8 +224,6 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data={
                 CONF_USR_ID: self._login_data[CONF_USR_ID],
                 CONF_SSID: self._login_data[CONF_SSID],
-                CONF_USERNAME: self._login_data[CONF_USERNAME],
-                CONF_PASSWORD: self._login_data[CONF_PASSWORD],
                 CONF_DEVICE_ID: device_id,
                 CONF_FAMILY_ID: self._temp_login_info.get(CONF_FAMILY_ID),
                 CONF_REAL_FAMILY_ID: self._temp_login_info.get(CONF_REAL_FAMILY_ID),
@@ -281,18 +237,7 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             for entry in self.hass.config_entries.async_entries(DOMAIN)
         )
 
-    def _get_saved_credentials(self) -> dict[str, str] | None:
-        for entry in self.hass.config_entries.async_entries(DOMAIN):
-            username = entry.data.get(CONF_USERNAME)
-            password = entry.data.get(CONF_PASSWORD)
-            if username and password:
-                return {
-                    CONF_USERNAME: username,
-                    CONF_PASSWORD: password,
-                }
-        return None
-
-    async def _get_devices_with_ssid(self, usr_id, ssid):
+    async def _get_devices_with_ssid(self, usr_id, ssid) -> dict[str, CloudDeviceInfo]:
         headers = {
             "User-Agent": "SmartApp",
             "Content-Type": "application/json",
@@ -345,11 +290,7 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     raise RuntimeError("GetToken failed")
                 token_start = data["results"]["token"]
 
-            pwd_md5 = hashlib.md5(password.encode()).hexdigest().upper()
-            inter_md5 = hashlib.md5((pwd_md5 + username).encode()).hexdigest().upper()
-            final_token = (
-                hashlib.md5((inter_md5 + token_start).encode()).hexdigest().upper()
-            )
+            final_token = calc_login_token(username, password, token_start)
 
             async with session.post(
                 URL_LOGIN,
@@ -378,24 +319,4 @@ class PanasonicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_FAMILY_ID: res[CONF_FAMILY_ID],
                 }
 
-            headers["Cookie"] = f"SSID={ssid}"
-            async with session.post(
-                URL_GET_DEV,
-                json={
-                    "id": 3,
-                    "uiVersion": 4.0,
-                    "params": {
-                        "realFamilyId": res["realFamilyId"],
-                        "familyId": res["familyId"],
-                        "usrId": real_usr_id,
-                    },
-                },
-                headers=headers,
-                ssl=False,
-            ) as resp:
-                dev_res = await resp.json()
-                devices = {}
-                if "results" in dev_res and "devList" in dev_res["results"]:
-                    for dev in dev_res["results"]["devList"]:
-                        devices[dev["deviceId"]] = dev["params"]
-                return real_usr_id, ssid, devices
+            return real_usr_id, ssid

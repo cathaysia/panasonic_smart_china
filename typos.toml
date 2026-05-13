@@ -1,0 +1,7 @@
+[default]
+extend-ignore-re = []
+[default.extend-words]
+hass = "hass"
+
+[files]
+extend-exclude = ["CHANGELOG.md"]

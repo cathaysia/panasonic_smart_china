@@ -3,7 +3,7 @@
 		"step": {
 			"user": {
 				"title": "登录松下账号",
-				"description": "请输入中国区“松下智能家电” App 的账号密码。首次登录会缓存会话，后续添加设备时会优先复用。",
+				"description": "请输入中国区“松下智能家电” App 的账号密码。",
 				"data": {
 					"username": "手机号",
 					"password": "密码"

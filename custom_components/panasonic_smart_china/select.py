@@ -9,7 +9,7 @@ from .const import DEVICE_TYPE_LAUNDRY, DOMAIN
 from .data.dryer import DRYER_SELECT_FIELDS
 from .data.washer import TOP_LOAD_SELECT_FIELDS, WASHER_SELECT_FIELDS
 from .entity import PanasonicCoordinatorEntity
-from .utils import get_laundry_option_label
+from .utils.utils import get_laundry_option_label
 
 
 async def async_setup_entry(

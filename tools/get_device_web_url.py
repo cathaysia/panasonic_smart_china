@@ -1,6 +1,7 @@
 import requests
-import hashlib
 import urllib.parse
+
+from custom_components.panasonic_smart_china.utils.utils import calc_login_token
 
 # ================= 配置区域 =================
 USERNAME = "你的手机号"
@@ -44,11 +45,7 @@ def login_and_get_devices():
 
         print("2. 正在计算加密哈希并登录...")
         # 2. 计算密码哈希
-        pwd_md5 = hashlib.md5(PASSWORD.encode()).hexdigest().upper()
-        inter_md5 = hashlib.md5((pwd_md5 + USERNAME).encode()).hexdigest().upper()
-        final_token = (
-            hashlib.md5((inter_md5 + token_start).encode()).hexdigest().upper()
-        )
+        final_token = calc_login_token(USERNAME, PASSWORD, token_start)
 
         # 3. Login
         resp = session.post(
